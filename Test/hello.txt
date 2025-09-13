@@ -1,3 +1,0 @@
-Kshitij K Sawant 
-DevOps Day 2 
-Jenkins and CI / CD
