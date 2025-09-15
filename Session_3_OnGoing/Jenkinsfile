@@ -1,0 +1,20 @@
+pipeline {
+  agent any
+  stages {
+    stage('Checkout') { steps { checkout scm } }
+    stage('Package') {
+      steps {
+        sh '''
+          cd "Session_3_OnGoing"
+          rm -rf dist && mkdir dist
+          cp index.html styles.css script.js dist/
+        '''
+      }
+    }
+    stage('Archive') {
+      steps {
+        archiveArtifacts artifacts: 'Session_3_OnGoing/dist/**', fingerprint: true
+      }
+    }
+  }
+}
