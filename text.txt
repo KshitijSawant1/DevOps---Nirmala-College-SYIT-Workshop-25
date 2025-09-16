@@ -1,0 +1,163 @@
+Great—now we’ll containerize your Session 4 Flask app.
+
+---
+
+## Step 2 — Add Docker files
+
+### A) `Dockerfile` (place next to `app.py`)
+
+```dockerfile
+# 1) Base image
+FROM python:3.11-slim
+
+# 2) Environment (faster logs, no .pyc)
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PORT=5001
+
+# 3) Workdir
+WORKDIR /app
+
+# 4) Install dependencies (layer-cached)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 5) Copy app source
+COPY . .
+
+# 6) Expose app port
+EXPOSE 5001
+
+# 7) Default start command
+CMD ["python", "app.py"]
+```
+
+### B) `.dockerignore`
+
+```
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.coverage
+coverage.xml
+test-results/
+dist/
+.git
+.gitignore
+```
+
+---
+
+## Step 3 — Build the image
+
+### macOS / Linux
+
+```bash
+# Run these from the session4-flask folder (where Dockerfile is)
+docker build -t session4-flask:latest .
+```
+
+### Windows (PowerShell/CMD)
+
+```bat
+docker build -t session4-flask:latest .
+```
+
+---
+
+## Step 4 — Run the container locally
+
+### A) Foreground (good for first run)
+
+```bash
+docker run --rm -p 5001:5001 --name session4 session4-flask:latest
+```
+
+* Visit: `http://localhost:5001/` and `/health`
+* Stop with `Ctrl+C`
+
+### B) Detached (background), then test and stop
+
+```bash
+# start
+docker run -d -p 5001:5001 --name session4 session4-flask:latest
+
+# quick health check
+curl -s http://localhost:5001/health
+
+# view logs
+docker logs session4
+
+# stop
+docker stop session4
+```
+
+Windows PowerShell:
+
+```powershell
+Invoke-WebRequest -UseBasicParsing http://localhost:5001/health
+docker logs session4
+docker stop session4
+```
+
+---
+
+## Step 5 — Rebuild after code changes
+
+If you edit `app.py` or dependencies:
+
+```bash
+# stop old container if running
+docker stop session4 2>/dev/null || true
+
+# rebuild
+docker build -t session4-flask:latest .
+
+# run again
+docker run --rm -p 5001:5001 --name session4 session4-flask:latest
+```
+
+---
+
+## Step 6 — Optional: choose a different port
+
+If 5001 is busy:
+
+```bash
+# map host 5002 -> container 5001
+docker run --rm -p 5002:5001 --name session4 session4-flask:latest
+# open http://localhost:5002
+```
+
+---
+
+## Step 7 — (Optional) Tag with version and push to Docker Hub
+
+1. Create a repo on Docker Hub (e.g., `youruser/session4-flask`).
+2. Login and push:
+
+```bash
+docker login
+docker tag session4-flask:latest youruser/session4-flask:1.0.0
+docker tag session4-flask:latest youruser/session4-flask:latest
+docker push youruser/session4-flask:1.0.0
+docker push youruser/session4-flask:latest
+```
+
+---
+
+## Quick Troubleshooting
+
+* **`permission denied /var/run/docker.sock` (Jenkins/Linux)**
+  Add Jenkins user to `docker` group and restart agent.
+* **Port already in use**
+  Use a different host port (`-p 5002:5001`) or stop the conflicting process.
+* **Cannot connect from browser**
+  Check container is running: `docker ps`
+  Check logs: `docker logs session4`
+  Verify app is bound to `0.0.0.0` (you already set this in `app.py`).
+
+---
+
+When this works locally, say “ready” and we’ll do the Jenkins pipeline step that builds the image, runs a smoke test (`/health`), and archives `docker logs`.
