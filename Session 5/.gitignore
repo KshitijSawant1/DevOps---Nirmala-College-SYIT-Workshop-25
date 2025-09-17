@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+
+# Virtual env
+venv/
+.env/
+
+# Coverage
+.coverage
+coverage.xml
+htmlcov/
+
+# Docker
+*.log
+container.log
+
+# IDEs/editors
+.vscode/
+.idea/
+*.swp

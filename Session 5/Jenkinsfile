@@ -1,0 +1,90 @@
+pipeline {
+  agent any
+  options { timestamps(); ansiColor('xterm') }
+
+  environment {
+    APP_DIR        = 'Session 5'
+    IMAGE_NAME     = 'session5-flask'
+    DOCKER_USER    = 'kshitijsawant'
+    DOCKER_REPO    = "${DOCKER_USER}/session5-flask"
+    TAG            = "build-${env.BUILD_NUMBER}"
+    PORT           = '5001'
+    CONTAINER_NAME = 'session5'
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        git branch: 'main',
+            url: 'https://github.com/KshitijSawant1/DevOps---Nirmala-College-SYIT-Workshop-25.git'
+      }
+    }
+
+    stage('Build Docker Image') {
+      steps {
+        script {
+          if (isUnix()) {
+            sh """
+              cd "${APP_DIR}"
+              docker build -t ${IMAGE_NAME}:latest -t ${IMAGE_NAME}:${TAG} .
+            """
+          } else {
+            bat """
+              cd "${APP_DIR}"
+              docker build -t %IMAGE_NAME%:latest -t %IMAGE_NAME%:%TAG% .
+            """
+          }
+        }
+      }
+    }
+
+    stage('Push to Docker Hub') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
+          script {
+            if (isUnix()) {
+              sh """
+                echo "${DH_PASS}" | docker login -u "${DH_USER}" --password-stdin
+                docker tag ${IMAGE_NAME}:${TAG} ${DOCKER_REPO}:${TAG}
+                docker tag ${IMAGE_NAME}:latest ${DOCKER_REPO}:latest
+                docker push ${DOCKER_REPO}:${TAG}
+                docker push ${DOCKER_REPO}:latest
+              """
+            } else {
+              bat """
+                echo %DH_PASS% | docker login -u %DH_USER% --password-stdin
+                docker tag %IMAGE_NAME%:%TAG% %DOCKER_REPO%:%TAG%
+                docker tag %IMAGE_NAME%:latest %DOCKER_REPO%:latest
+                docker push %DOCKER_REPO%:%TAG%
+                docker push %DOCKER_REPO%:latest
+              """
+            }
+          }
+        }
+      }
+    }
+
+    stage('Deploy Container') {
+      steps {
+        script {
+          if (isUnix()) {
+            sh """
+              docker rm -f ${CONTAINER_NAME} || true
+              docker run -d --name ${CONTAINER_NAME} -p ${PORT}:${PORT} -e PORT=${PORT} ${DOCKER_REPO}:latest
+            """
+          } else {
+            bat """
+              docker rm -f %CONTAINER_NAME%
+              docker run -d --name %CONTAINER_NAME% -p %PORT%:%PORT% -e PORT=%PORT% %DOCKER_REPO%:latest
+            """
+          }
+        }
+      }
+    }
+  }
+
+  post {
+    success { echo "Successfully deployed ${DOCKER_REPO}:latest on port ${PORT}" }
+    failure { echo "Pipeline failed. Check logs." }
+  }
+}
